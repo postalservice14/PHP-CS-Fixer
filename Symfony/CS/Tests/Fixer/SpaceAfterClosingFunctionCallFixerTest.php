@@ -33,6 +33,14 @@ class SpaceAfterClosingFunctionCallFixerTest extends \PHPUnit_Framework_TestCase
                 '<?php $this->foo(\'with param containing ;\'); ?>',
                 '<?php $this->foo(\'with param containing ;\') ; ?>'
             ),
+            array(
+                '<?php $this->foo(\'with param containing ) ; \'); ?>',
+                '<?php $this->foo(\'with param containing ) ; \') ; ?>'
+            ),
+            array(
+                '<?php $this->foo("with param containing ) ; "); ?>',
+                '<?php $this->foo("with param containing ) ; ") ; ?>'
+            ),
             array('<?php $this->foo(); ?>', '<?php $this->foo(); ?>'),
             array('<?php
 

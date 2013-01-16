@@ -27,7 +27,7 @@ class SpaceAfterClosingFunctionCallFixer implements FixerInterface
      */
     public function fix(\SplFileInfo $file, $content)
     {
-        return preg_replace('/\)\s+;/', ');', $content);
+        return preg_replace('/\)\s+;(?!.?[\'"])/', ');', $content);
     }
 
     /**
