@@ -11,6 +11,8 @@
 namespace Symfony\CS\Fixer;
 
 use Symfony\CS\FixerInterface;
+use Symfony\CS\Token;
+use Symfony\CS\Tokens;
 
 /**
  * @author John Kelly <johnmkelly86@gmail.com>
@@ -27,7 +29,29 @@ class SpaceAfterClosingFunctionCallFixer implements FixerInterface
      */
     public function fix(\SplFileInfo $file, $content)
     {
-        return preg_replace('/\)\s+;(?!.?[\'"])/', ');', $content);
+        $tokens = Tokens::fromCode($content);
+
+        foreach ($tokens as $index => $token) {
+            /** @var Token $token */
+            if ($token->isArray()) {
+                continue;
+            }
+
+            if (';' === $token->content) {
+                $prevNonWhitespaceIndex = null;
+                $prevNonWhitespaceToken = $tokens->getPrevNonWhitespace($index, array(), $prevNonWhitespaceIndex);
+
+                if (!$prevNonWhitespaceToken->isArray() && ')' === $prevNonWhitespaceToken->content) {
+                    for ($i = $index - 1; $i > $prevNonWhitespaceIndex; --$i) {
+                        $tokens[$i]->clear();
+                    }
+                }
+
+                continue;
+            }
+        }
+
+        return $tokens->generateCode();
     }
 
     /**
