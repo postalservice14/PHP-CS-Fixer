@@ -28,6 +28,10 @@ class SpaceAfterClosingFunctionCallFixerTest extends \PHPUnit_Framework_TestCase
     public function provideClosingTagExamples()
     {
         return array(
+            array(
+                '<?php echo "$this->foo(\'with param containing ;\') ;"; ?>',
+                '<?php echo "$this->foo(\'with param containing ;\') ;" ; ?>'
+            ),
             array('<?php $this->foo(); ?>', '<?php $this->foo() ; ?>'),
             array(
                 '<?php $this->foo(\'with param containing ;\'); ?>',

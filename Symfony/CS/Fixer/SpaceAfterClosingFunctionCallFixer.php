@@ -41,7 +41,7 @@ class SpaceAfterClosingFunctionCallFixer implements FixerInterface
                 $prevNonWhitespaceIndex = null;
                 $prevNonWhitespaceToken = $tokens->getPrevNonWhitespace($index, array(), $prevNonWhitespaceIndex);
 
-                if (!$prevNonWhitespaceToken->isArray() && ')' === $prevNonWhitespaceToken->content) {
+                if (!$prevNonWhitespaceToken->isArray()) {
                     for ($i = $index - 1; $i > $prevNonWhitespaceIndex; --$i) {
                         $tokens[$i]->clear();
                     }
