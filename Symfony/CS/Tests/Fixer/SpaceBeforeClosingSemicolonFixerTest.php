@@ -10,16 +10,16 @@
 
 namespace Symfony\CS\Tests\Fixer;
 
-use Symfony\CS\Fixer\SpaceAfterClosingFunctionCallFixer;
+use Symfony\CS\Fixer\SpaceBeforeClosingSemicolonFixer;
 
-class SpaceAfterClosingFunctionCallFixerTest extends \PHPUnit_Framework_TestCase
+class SpaceBeforeClosingSemicolonFixerTest extends \PHPUnit_Framework_TestCase
 {
     /**
      * @dataProvider provideClosingTagExamples
      */
     public function testOneLineFix($expected, $input)
     {
-        $fixer = new SpaceAfterClosingFunctionCallFixer();
+        $fixer = new SpaceBeforeClosingSemicolonFixer();
         $file = new \SplFileInfo(__FILE__);
 
         $this->assertEquals($expected, $fixer->fix($file, $input));

@@ -17,7 +17,7 @@ use Symfony\CS\Tokens;
 /**
  * @author John Kelly <johnmkelly86@gmail.com>
  */
-class SpaceAfterClosingFunctionCallFixer implements FixerInterface
+class SpaceBeforeClosingSemicolonFixer implements FixerInterface
 {
     /**
      * Fixes a file.
@@ -61,7 +61,6 @@ class SpaceAfterClosingFunctionCallFixer implements FixerInterface
      */
     public function getLevel()
     {
-        // defined in PSR-2 4.3
         return FixerInterface::PSR2_LEVEL;
     }
 
@@ -95,7 +94,7 @@ class SpaceAfterClosingFunctionCallFixer implements FixerInterface
      */
     public function getName()
     {
-        return 'space_after_closing_function_call';
+        return 'space_before_closing_semicolon';
     }
 
     /**
@@ -107,6 +106,6 @@ class SpaceAfterClosingFunctionCallFixer implements FixerInterface
      */
     public function getDescription()
     {
-        return 'Space after closing parentheses of method call is prohibited.';
+        return 'Space before closing semicolon is prohibited.';
     }
 }
