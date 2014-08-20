@@ -28,6 +28,18 @@ class SpaceBeforeClosingSemicolonFixerTest extends \PHPUnit_Framework_TestCase
     public function provideClosingTagExamples()
     {
         return array(
+            array('<?php
+$this
+    ->setName(\'readme\')
+    ->setDescription(\'Generates the README content, based on the fix command help\')
+;
+?>',
+                '<?php
+$this
+    ->setName(\'readme\')
+    ->setDescription(\'Generates the README content, based on the fix command help\')
+;
+?>'),
             array(
                 '<?php echo "$this->foo(\'with param containing ;\') ;"; ?>',
                 '<?php echo "$this->foo(\'with param containing ;\') ;" ; ?>'
@@ -61,7 +73,7 @@ $this->foo();
 $this->foo() ;
 
 ?>
-')
+'),
         );
     }
 }

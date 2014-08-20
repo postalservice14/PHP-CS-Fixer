@@ -43,7 +43,9 @@ class SpaceBeforeClosingSemicolonFixer implements FixerInterface
 
                 if (!$prevNonWhitespaceToken->isArray()) {
                     for ($i = $index - 1; $i > $prevNonWhitespaceIndex; --$i) {
-                        $tokens[$i]->clear();
+                        if (trim($tokens[$i]->content, " \t\r\0\x0B") != "\n") {
+                            $tokens[$i]->clear();
+                        }
                     }
                 }
 
@@ -77,8 +79,8 @@ class SpaceBeforeClosingSemicolonFixer implements FixerInterface
     /**
      * Returns true if the file is supported by this fixer.
      *
-     * @param \SplFileInfo $file
-     * @return bool true if the file is supported by this fixer, false otherwise
+     * @param  \SplFileInfo $file
+     * @return bool         true if the file is supported by this fixer, false otherwise
      */
     public function supports(\SplFileInfo $file)
     {
