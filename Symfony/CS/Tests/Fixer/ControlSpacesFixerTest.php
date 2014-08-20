@@ -21,8 +21,8 @@ class ControlSpacesFixerTest extends \PHPUnit_Framework_TestCase
 
         $try = 'try{';
         $tryFixed = 'try {';
-        $this->assertEquals($tryFixed, $fixer->fix($this->getFileMock(), $try));
-        $this->assertEquals($tryFixed, $fixer->fix($this->getFileMock(), $tryFixed));
+        $this->assertSame($tryFixed, $fixer->fix($this->getTestFile(), $try));
+        $this->assertSame($tryFixed, $fixer->fix($this->getTestFile(), $tryFixed));
     }
 
     public function testFixControlsWithPrefixBraceAndParentheses()
@@ -31,8 +31,8 @@ class ControlSpacesFixerTest extends \PHPUnit_Framework_TestCase
 
         $while = 'do { ... }while($test);';
         $whileFixed = 'do { ... } while ($test);';
-        $this->assertEquals($whileFixed, $fixer->fix($this->getFileMock(), $while));
-        $this->assertEquals($whileFixed, $fixer->fix($this->getFileMock(), $whileFixed));
+        $this->assertSame($whileFixed, $fixer->fix($this->getTestFile(), $while));
+        $this->assertSame($whileFixed, $fixer->fix($this->getTestFile(), $whileFixed));
     }
 
     /**
@@ -42,8 +42,24 @@ class ControlSpacesFixerTest extends \PHPUnit_Framework_TestCase
     {
         $fixer = new Fixer();
 
-        $this->assertEquals($ifFixed, $fixer->fix($this->getFileMock(), $if));
-        $this->assertEquals($ifFixed, $fixer->fix($this->getFileMock(), $ifFixed));
+        $this->assertSame($ifFixed, $fixer->fix($this->getTestFile(), $if));
+        $this->assertSame($ifFixed, $fixer->fix($this->getTestFile(), $ifFixed));
+    }
+
+    public function testFixControlClosingParenthesesKeepsIndentation()
+    {
+        $fixer = new Fixer();
+
+        $if = 'if(true === true
+            && true === true
+        )    {';
+
+        $ifFixed = 'if (true === true
+            && true === true
+        ) {';
+
+        $this->assertSame($ifFixed, $fixer->fix($this->getTestFile(), $if));
+        $this->assertSame($ifFixed, $fixer->fix($this->getTestFile(), $ifFixed));
     }
 
     public function testFixControlsWithParenthesesAndSuffixBraceProvider()
@@ -65,8 +81,8 @@ class ControlSpacesFixerTest extends \PHPUnit_Framework_TestCase
 
         $else = '}else{';
         $elseFixed = '} else {';
-        $this->assertEquals($elseFixed, $fixer->fix($this->getFileMock(), $else));
-        $this->assertEquals($elseFixed, $fixer->fix($this->getFileMock(), $elseFixed));
+        $this->assertSame($elseFixed, $fixer->fix($this->getTestFile(), $else));
+        $this->assertSame($elseFixed, $fixer->fix($this->getTestFile(), $elseFixed));
     }
 
     public function testFixControlsWithPrefixBraceAndParenthesesAndSuffixBrace()
@@ -75,8 +91,8 @@ class ControlSpacesFixerTest extends \PHPUnit_Framework_TestCase
 
         $elseif = '}elseif($test){';
         $elseifFixed = '} elseif ($test) {';
-        $this->assertEquals($elseifFixed, $fixer->fix($this->getFileMock(), $elseif));
-        $this->assertEquals($elseifFixed, $fixer->fix($this->getFileMock(), $elseifFixed));
+        $this->assertSame($elseifFixed, $fixer->fix($this->getTestFile(), $elseif));
+        $this->assertSame($elseifFixed, $fixer->fix($this->getTestFile(), $elseifFixed));
     }
 
     public function testFixControlsWithPrefixBraceAndParenthesesAndSuffixBraceInLambdas()
@@ -85,40 +101,18 @@ class ControlSpacesFixerTest extends \PHPUnit_Framework_TestCase
 
         $use = ')use($test){';
         $useFixed = ') use ($test) {';
-        $this->assertEquals($useFixed, $fixer->fix($this->getFileMock(), $use));
-        $this->assertEquals($useFixed, $fixer->fix($this->getFileMock(), $useFixed));
+        $this->assertSame($useFixed, $fixer->fix($this->getTestFile(), $use));
+        $this->assertSame($useFixed, $fixer->fix($this->getTestFile(), $useFixed));
     }
 
-    /**
-     * @dataProvider testFixCastsProvider
-     */
-    public function testFixCasts($cast, $castFixed)
+    private function getTestFile($filename = __FILE__)
     {
-        $fixer = new Fixer();
+        static $files = array();
 
-        $this->assertEquals($castFixed, $fixer->fix($this->getFileMock(), $cast));
-        $this->assertEquals($castFixed, $fixer->fix($this->getFileMock(), $castFixed));
-    }
+        if (!isset($files[$filename])) {
+            $files[$filename] = new \SplFileInfo($filename);
+        }
 
-    public function testFixCastsProvider()
-    {
-        return array(
-            array('( int)$foo', '(int) $foo'),
-            array('( string )( int )$foo', '(string) (int) $foo'),
-            array('(string)(int)$foo', '(string) (int) $foo'),
-            array('( string   )    (   int )$foo', '(string) (int) $foo'),
-            array('( string )   $foo', '(string) $foo'),
-            array('(float )Foo::bar()', '(float) Foo::bar()'),
-            array('Foo::baz((float )Foo::bar())', 'Foo::baz((float) Foo::bar())'),
-            array('$query["params"] = (array)$query["params"]', '$query["params"] = (array) $query["params"]'),
-            array("(int)\n    *", "(int)\n    *"),
-        );
-    }
-
-    private function getFileMock()
-    {
-        return $this->getMockBuilder('\SplFileInfo')
-            ->disableOriginalConstructor()
-            ->getMock();
+        return $files[$filename];
     }
 }

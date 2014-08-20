@@ -24,24 +24,24 @@ class FixerTest extends \PHPUnit_Framework_TestCase
     {
         $fixer = new Fixer();
 
-        $f1 = $this->getMock('Symfony\CS\FixerInterface');
-        $f1->expects($this->any())->method('getPriority')->will($this->returnValue(0));
+        $fxPrototypes = array(
+            array('getPriority' =>   0, ),
+            array('getPriority' => -10, ),
+            array('getPriority' =>  10, ),
+            array('getPriority' => -10, ),
+        );
 
-        $f2 = $this->getMock('Symfony\CS\FixerInterface');
-        $f2->expects($this->any())->method('getPriority')->will($this->returnValue(-10));
+        $fxs = array();
 
-        $f3 = $this->getMock('Symfony\CS\FixerInterface');
-        $f3->expects($this->any())->method('getPriority')->will($this->returnValue(10));
+        foreach ($fxPrototypes as $fxPrototype) {
+            $fx = $this->getMock('Symfony\CS\FixerInterface');
+            $fx->expects($this->any())->method('getPriority')->willReturn($fxPrototype['getPriority']);
 
-        $f4 = $this->getMock('Symfony\CS\FixerInterface');
-        $f4->expects($this->any())->method('getPriority')->will($this->returnValue(-10));
+            $fixer->addFixer($fx);
+            $fxs[] = $fx;
+        }
 
-        $fixer->addFixer($f1);
-        $fixer->addFixer($f2);
-        $fixer->addFixer($f3);
-        $fixer->addFixer($f4);
-
-        $this->assertSame(array($f3, $f1, $f4, $f2), $fixer->getFixers());
+        $this->assertSame(array($fxs[2], $fxs[0], $fxs[3], $fxs[1]), $fixer->getFixers());
     }
 
     /**
@@ -114,12 +114,13 @@ class FixerTest extends \PHPUnit_Framework_TestCase
         $config = Config::create()->finder(new \DirectoryIterator(__DIR__.DIRECTORY_SEPARATOR.'Fixtures'.DIRECTORY_SEPARATOR.'FixerTest'));
         $config->fixers($fixer->getFixers());
 
-        $changed = $fixer->fix($config, true);
+        $changed = $fixer->fix($config, true, true);
         $pathToInvalidFile = __DIR__.DIRECTORY_SEPARATOR.'Fixtures'.DIRECTORY_SEPARATOR.'FixerTest'.DIRECTORY_SEPARATOR.'somefile.php';
 
         $this->assertCount(1, $changed);
-        $this->assertCount(1, $changed[$pathToInvalidFile]);
-        $this->assertEquals('visibility', $changed[$pathToInvalidFile][0]);
+        $this->assertCount(2, $changed[$pathToInvalidFile]);
+        $this->assertSame(array('appliedFixers', 'diff'), array_keys($changed[$pathToInvalidFile]));
+        $this->assertSame('visibility', $changed[$pathToInvalidFile]['appliedFixers'][0]);
     }
 
     /**

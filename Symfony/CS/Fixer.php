@@ -13,22 +13,53 @@ namespace Symfony\CS;
 
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo as FinderSplFileInfo;
+use Symfony\Component\Stopwatch\Stopwatch;
+use SebastianBergmann\Diff\Differ;
 
 /**
  * @author Fabien Potencier <fabien@symfony.com>
  */
 class Fixer
 {
-    const VERSION = '0.2';
+    const VERSION = '0.5-DEV';
 
     protected $fixers = array();
     protected $configs = array();
+    protected $diff;
+
+    /**
+     * Stopwatch instance.
+     * @type \Symfony\Component\Stopwatch\Stopwatch|null
+     */
+    protected $stopwatch;
+
+    public function __construct()
+    {
+        $this->diff = new Differ();
+    }
+
+    public static function cmpInt($a, $b)
+    {
+        if ($a === $b) {
+            return 0;
+        }
+
+        return $a < $b ? -1 : 1;
+    }
 
     public function registerBuiltInFixers()
     {
         foreach (Finder::create()->files()->in(__DIR__.'/Fixer') as $file) {
-            $class = 'Symfony\\CS\\Fixer\\'.basename($file, '.php');
+            $relativeNamespace = $file->getRelativePath();
+            $class = 'Symfony\\CS\\Fixer\\'.($relativeNamespace ? $relativeNamespace.'\\' : '').$file->getBasename('.php');
             $this->addFixer(new $class());
+        }
+    }
+
+    public function registerCustomFixers($fixers)
+    {
+        foreach ($fixers as $fixer) {
+            $this->addFixer($fixer);
         }
     }
 
@@ -47,7 +78,8 @@ class Fixer
     public function registerBuiltInConfigs()
     {
         foreach (Finder::create()->files()->in(__DIR__.'/Config') as $file) {
-            $class = 'Symfony\\CS\\Config\\'.basename($file, '.php');
+            $relativeNamespace = $file->getRelativePath();
+            $class = 'Symfony\\CS\\Config\\'.($relativeNamespace ? $relativeNamespace.'\\' : '').$file->getBasename('.php');
             $this->addConfig(new $class());
         }
     }
@@ -67,81 +99,136 @@ class Fixer
      *
      * @param ConfigInterface $config A ConfigInterface instance
      * @param Boolean         $dryRun Whether to simulate the changes or not
+     * @param Boolean         $diff   Whether to provide diff
      */
-    public function fix(ConfigInterface $config, $dryRun = false)
+    public function fix(ConfigInterface $config, $dryRun = false, $diff = false)
     {
-        $this->sortFixers();
-
         $fixers = $this->prepareFixers($config);
         $changed = array();
+
+        if ($this->stopwatch) {
+            $this->stopwatch->openSection();
+        }
+
         foreach ($config->getFinder() as $file) {
             if ($file->isDir()) {
                 continue;
             }
 
-            if ($appliedFixers = $this->fixFile($file, $fixers, $dryRun)) {
-                if ($file instanceof FinderSplFileInfo) {
-                    $changed[$file->getRelativePathname()] = $appliedFixers;
-                } else {
-                    $changed[$file->getPathname()] = $appliedFixers;
-                }
+            if ($fixInfo = $this->fixFile($file, $fixers, $dryRun, $diff)) {
+                $changed[$this->getFileRelativePathname($file)] = $fixInfo;
             }
+        }
+
+        if ($this->stopwatch) {
+            $this->stopwatch->stopSection('fixFile');
         }
 
         return $changed;
     }
 
-    public function fixFile(\SplFileInfo $file, array $fixers, $dryRun)
+    public function fixFile(\SplFileInfo $file, array $fixers, $dryRun, $diff)
     {
+        if ($this->stopwatch) {
+            $this->stopwatch->start($this->getFileRelativePathname($file));
+        }
+
         $new = $old = file_get_contents($file->getRealpath());
         $appliedFixers = array();
+
+        // we do not need Tokens to still caching previously fixed file - so clear the cache
+        Tokens::clearCache();
 
         foreach ($fixers as $fixer) {
             if (!$fixer->supports($file)) {
                 continue;
             }
 
-            $new1 = $fixer->fix($file, $new);
-            if ($new1 != $new) {
+            $newest = $fixer->fix($file, $new);
+            if ($newest !== $new) {
                 $appliedFixers[] = $fixer->getName();
             }
-            $new = $new1;
+            $new = $newest;
         }
 
-        if ($new != $old) {
+        $fixInfo = null;
+
+        if ($new !== $old) {
             if (!$dryRun) {
                 file_put_contents($file->getRealpath(), $new);
             }
 
-            return $appliedFixers;
+            $fixInfo = array('appliedFixers' => $appliedFixers);
+
+            if ($diff) {
+                $fixInfo['diff'] = $this->stringDiff($old, $new);
+            }
         }
+
+        if ($this->stopwatch) {
+            $this->stopwatch->stop($this->getFileRelativePathname($file));
+        }
+
+        return $fixInfo;
+    }
+
+    private function getFileRelativePathname(\SplFileInfo $file)
+    {
+        if ($file instanceof FinderSplFileInfo) {
+            return $file->getRelativePathname();
+        }
+
+        return $file->getPathname();
     }
 
     public static function getLevelAsString(FixerInterface $fixer)
     {
-        if ($fixer->getLevel() === ($fixer->getLevel() & FixerInterface::PSR0_LEVEL)) {
+        $level = $fixer->getLevel();
+
+        if ($level === ($level & FixerInterface::PSR0_LEVEL)) {
             return 'PSR-0';
         }
 
-        if ($fixer->getLevel() === ($fixer->getLevel() & FixerInterface::PSR1_LEVEL)) {
+        if ($level === ($level & FixerInterface::PSR1_LEVEL)) {
             return 'PSR-1';
         }
 
-        if ($fixer->getLevel() === ($fixer->getLevel() & FixerInterface::PSR2_LEVEL)) {
+        if ($level === ($level & FixerInterface::PSR2_LEVEL)) {
             return 'PSR-2';
+        }
+
+        if ($level === ($level & FixerInterface::CONTRIB_LEVEL)) {
+            return 'contrib';
         }
 
         return 'all';
     }
 
+    protected function stringDiff($old, $new)
+    {
+        $diff = $this->diff->diff($old, $new);
+
+        $diff = implode(PHP_EOL, array_map(function ($string) {
+            $string = preg_replace('/^(\+){3}/', '<info>+++</info>', $string);
+            $string = preg_replace('/^(\+){1}/', '<info>+</info>', $string);
+
+            $string = preg_replace('/^(\-){3}/', '<error>---</error>', $string);
+            $string = preg_replace('/^(\-){1}/', '<error>-</error>', $string);
+
+            $string = str_repeat(' ', 6) . $string;
+
+            return $string;
+        }, explode(PHP_EOL, $diff)));
+
+        return $diff;
+    }
+
     private function sortFixers()
     {
-        usort($this->fixers, function ($a, $b) {
-            if ($a->getPriority() == $b->getPriority()) {
-                return 0;
-            }
+        $selfName = __CLASS__;
 
-            return $a->getPriority() > $b->getPriority() ? -1 : 1;
+        usort($this->fixers, function ($a, $b) use ($selfName) {
+            return $selfName::cmpInt($b->getPriority(), $a->getPriority());
         });
     }
 
@@ -156,5 +243,10 @@ class Fixer
         }
 
         return $fixers;
+    }
+
+    public function setStopwatch(Stopwatch $stopwatch)
+    {
+        $this->stopwatch = $stopwatch;
     }
 }

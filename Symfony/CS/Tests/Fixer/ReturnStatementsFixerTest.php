@@ -22,8 +22,8 @@ class ReturnStatementsFixerTest extends \PHPUnit_Framework_TestCase
     {
         $fixer = new Fixer();
 
-        $this->assertEquals($returnFixed, $fixer->fix($this->getFileMock(), $return));
-        $this->assertEquals($returnFixed, $fixer->fix($this->getFileMock(), $returnFixed));
+        $this->assertSame($returnFixed, $fixer->fix($this->getTestFile(), $return));
+        $this->assertSame($returnFixed, $fixer->fix($this->getTestFile(), $returnFixed));
     }
 
     public function testFixProvider()
@@ -61,11 +61,11 @@ TEST;
 TEST;
 
         $return4 = <<<TEST
-    if (\$foo == \$bar)
+    if (\$foo === \$bar)
         return;
 TEST;
         $returnFixed4 = <<<TEST
-    if (\$foo == \$bar)
+    if (\$foo === \$bar)
         return;
 TEST;
 
@@ -79,16 +79,16 @@ TEST;
 TEST;
 
         $return6 = <<<TEST
-    elseif (\$foo == \$bar)
+    elseif (\$foo === \$bar)
         return;
 TEST;
         $returnFixed6 = <<<TEST
-    elseif (\$foo == \$bar)
+    elseif (\$foo === \$bar)
         return;
 TEST;
 
         $return7 = <<<TEST
-    if (\$foo == \$bar)
+    if (\$foo === \$bar)
 
 
 
@@ -97,7 +97,7 @@ TEST;
         return;
 TEST;
         $returnFixed7 = <<<TEST
-    if (\$foo == \$bar)
+    if (\$foo === \$bar)
         return;
 TEST;
 
@@ -130,10 +130,14 @@ TEST;
         );
     }
 
-    private function getFileMock()
+    private function getTestFile($filename = __FILE__)
     {
-        return $this->getMockBuilder('\SplFileInfo')
-            ->disableOriginalConstructor()
-            ->getMock();
+        static $files = array();
+
+        if (!isset($files[$filename])) {
+            $files[$filename] = new \SplFileInfo($filename);
+        }
+
+        return $files[$filename];
     }
 }

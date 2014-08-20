@@ -19,7 +19,7 @@ class Psr0FixerTest extends \PHPUnit_Framework_TestCase
     public function testFixCase()
     {
         $fixer = new Psr0Fixer();
-        $file = new \SplFileInfo(__DIR__.'/../../Fixer/Psr0Fixer.php');
+        $file = $this->getTestFile(__DIR__.'/../../Fixer/Psr0Fixer.php');
 
         $expected = <<<'EOF'
 namespace Symfony\CS\Fixer;
@@ -30,7 +30,7 @@ namespace Symfony\cs\Fixer;
 class psr0Fixer {}
 EOF;
 
-        $this->assertEquals($expected, $fixer->fix($file, $input));
+        $this->assertSame($expected, $fixer->fix($file, $input));
 
         $expected = <<<'EOF'
 class Symfony_CS_Fixer_Psr0Fixer {}
@@ -39,13 +39,13 @@ EOF;
 class symfony_cs_FiXER_Psr0FIXer {}
 EOF;
 
-        $this->assertEquals($expected, $fixer->fix($file, $input));
+        $this->assertSame($expected, $fixer->fix($file, $input));
     }
 
     public function testFixClassName()
     {
         $fixer = new Psr0Fixer();
-        $file = new \SplFileInfo(__DIR__.'/../../Fixer/Psr0Fixer.php');
+        $file = $this->getTestFile(__DIR__.'/../../Fixer/Psr0Fixer.php');
 
         $expected = <<<'EOF'
 namespace Symfony\CS\Fixer;
@@ -58,53 +58,45 @@ class blah {}
 /* class foo */
 EOF;
 
-        $this->assertEquals($expected, $fixer->fix($file, $input));
+        $this->assertSame($expected, $fixer->fix($file, $input));
     }
 
-    public function testFixNamespaceThrows()
+    public function testFixAbstractClassName()
     {
         $fixer = new Psr0Fixer();
-        $file = new \SplFileInfo(__DIR__.'/../../Fixer/Psr0Fixer.php');
+        $file = $this->getTestFile(__DIR__.'/../../Fixer/Psr0Fixer.php');
 
+        $expected = <<<'EOF'
+namespace Symfony\CS\Fixer;
+abstract class Psr0Fixer {}
+/* class foo */
+EOF;
         $input = <<<'EOF'
-namespace lala;
-class Psr0Fixer {}
+namespace Symfony\CS\Fixer;
+abstract class blah {}
+/* class foo */
 EOF;
 
-        $expected = '! The namespace lala in';
-        ob_start();
-        $fixer->fix($file, $input);
-        $this->assertContains($expected, ob_get_clean());
+        $this->assertSame($expected, $fixer->fix($file, $input));
     }
 
-    public function testFixOldClassnameThrows()
+    public function testFixFinalClassName()
     {
         $fixer = new Psr0Fixer();
-        $file = new \SplFileInfo(__DIR__.'/../../Fixer/Psr0Fixer.php');
+        $file = $this->getTestFile(__DIR__.'/../../Fixer/Psr0Fixer.php');
 
+        $expected = <<<'EOF'
+namespace Symfony\CS\Fixer;
+final class Psr0Fixer {}
+/* class foo */
+EOF;
         $input = <<<'EOF'
-class blah_bar {}
+namespace Symfony\CS\Fixer;
+final class blah {}
+/* class foo */
 EOF;
 
-        $expected = '! The class blah_bar in';
-        ob_start();
-        $fixer->fix($file, $input);
-        $this->assertContains($expected, ob_get_clean());
-    }
-
-    public function testMissingVendorThrows()
-    {
-        $fixer = new Psr0Fixer();
-        $file = new \SplFileInfo(__DIR__.'/../../Fixer/Psr0Fixer.php');
-
-        $input = <<<'EOF'
-class Psr0Fixer {}
-EOF;
-
-        $expected = '! Class Psr0Fixer in';
-        ob_start();
-        $fixer->fix($file, $input);
-        $this->assertContains($expected, ob_get_clean());
+        $this->assertSame($expected, $fixer->fix($file, $input));
     }
 
     public function testHandlePartialNamespaces()
@@ -114,7 +106,7 @@ EOF;
         $config->setDir(__DIR__.'/../../');
         $fixer->setConfig($config);
 
-        $file = new \SplFileInfo(__DIR__.'/../../Fixer/Psr0Fixer.php');
+        $file = $this->getTestFile(__DIR__.'/../../Fixer/Psr0Fixer.php');
 
         $expected = <<<'EOF'
 namespace Foo\Bar\Baz\Fixer;
@@ -125,9 +117,7 @@ namespace Foo\Bar\Baz\FIXER;
 class Psr0Fixer {}
 EOF;
 
-        ob_start();
-        $this->assertEquals($expected, $fixer->fix($file, $input));
-        $this->assertEquals('', ob_get_clean());
+        $this->assertSame($expected, $fixer->fix($file, $input));
 
         $config->setDir(__DIR__.'/../../Fixer');
         $expected = <<<'EOF'
@@ -139,8 +129,34 @@ namespace Foo\Bar\Baz;
 class Psr0Fixer {}
 EOF;
 
-        ob_start();
-        $this->assertEquals($expected, $fixer->fix($file, $input));
-        $this->assertEquals('', ob_get_clean());
+        $this->assertSame($expected, $fixer->fix($file, $input));
+    }
+
+    public function testFixLeadingSpaceNamespace()
+    {
+        $fixer = new Psr0Fixer();
+        $file = $this->getTestFile(__DIR__.'/../../Fixer/Psr0Fixer.php');
+
+        $expected = <<<'EOF'
+namespace LeadingSpace;
+class Psr0Fixer {}
+EOF;
+        $input = <<<'EOF'
+ namespace LeadingSpace;
+class Psr0Fixer {}
+EOF;
+
+        $this->assertSame($expected, $fixer->fix($file, $input));
+    }
+
+    private function getTestFile($filename = __FILE__)
+    {
+        static $files = array();
+
+        if (!isset($files[$filename])) {
+            $files[$filename] = new \SplFileInfo($filename);
+        }
+
+        return $files[$filename];
     }
 }

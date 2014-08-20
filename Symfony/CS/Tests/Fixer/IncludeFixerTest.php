@@ -25,36 +25,52 @@ class IncludeFixerTest extends \PHPUnit_Framework_TestCase
     {
         $fixer = new Fixer();
 
-        $this->assertEquals($includeFixed, $fixer->fix($this->getFileMock(), $include));
-        $this->assertEquals($includeFixed, $fixer->fix($this->getFileMock(), $includeFixed));
+        $this->assertSame($includeFixed, $fixer->fix($this->getTestFile(), $include));
+        $this->assertSame($includeFixed, $fixer->fix($this->getTestFile(), $includeFixed));
     }
 
     public function testFixProvider()
     {
         return array(
-            array("include   'foo.php'", "include 'foo.php'"),
-            array('include   "foo.php"', "include 'foo.php'"),
-            array('include (  "Buzz/foo-Bar.php" )', "include 'Buzz/foo-Bar.php'"),
-            array("include('foo.php')", "include 'foo.php'"),
-            array("include_once( 'foo.php' )", "include_once 'foo.php'"),
-            array('require("foo.php")', "require 'foo.php'"),
-            array("return require_once  __DIR__.'foo.php'", "return require_once __DIR__.'foo.php'"),
-            array("\$foo = require_once  __DIR__.('foo.php')", "\$foo = require_once __DIR__.('foo.php')"),
-            array("    require_once  (__DIR__.('foo.php'))", "    require_once (__DIR__.('foo.php'))"),
-            array("require_once (dirname(__FILE__).'foo.php')", "require_once (dirname(__FILE__).'foo.php')"),
-            array('$includeVar', '$includeVar'),
-            array("ClassCollectionLoader::load(include(\$this->getCacheDir().'classes.map'), \$this->getCacheDir(), \$name, \$this->debug, false, \$extension)", "ClassCollectionLoader::load(include(\$this->getCacheDir().'classes.map'), \$this->getCacheDir(), \$name, \$this->debug, false, \$extension)"),
-            array("require_once '\".__DIR__.\"/../bootstrap.php'", "require_once '\".__DIR__.\"/../bootstrap.php'"),
-            array("//  require   foo", "//  require   foo"),
-            array("* require   foo", "* require   foo"),
+            array("<?php include   'foo.php';", "<?php include 'foo.php';"),
+            array("<?php include   'foo.php'  ;", "<?php include 'foo.php';"),
+            array("<?php include   ('foo.php')  ;", "<?php include 'foo.php';"),
+            array('<?php include (  "Buzz/foo-Bar.php" );', '<?php include "Buzz/foo-Bar.php";'),
+            array('<?php include (  "$buzz/foo-Bar.php" );', '<?php include "$buzz/foo-Bar.php";'),
+            array('<?php include (  "{$buzz}/foo-Bar.php" );', '<?php include "{$buzz}/foo-Bar.php";'),
+            array("<?php include('foo.php');", "<?php include 'foo.php';"),
+            array("<?php include_once( 'foo.php' );", "<?php include_once 'foo.php';"),
+            array('<?php require($foo ? "foo.php" : "bar.php");', '<?php require $foo ? "foo.php" : "bar.php";'),
+            array('<?php require($foo  ?  "foo.php"  :  "bar.php");', '<?php require $foo  ?  "foo.php"  :  "bar.php";'),
+            array("<?php return require_once  __DIR__.'foo.php';", "<?php return require_once __DIR__.'foo.php';"),
+            array("<?php \$foo = require_once  __DIR__.('foo.php');", "<?php \$foo = require_once __DIR__.('foo.php');"),
+            array("<?php     require_once  (__DIR__.('foo.php'));", "<?php     require_once __DIR__.('foo.php');"),
+            array("<?php     require_once  (__DIR__ . ('foo.php'));", "<?php     require_once __DIR__ . ('foo.php');"),
+            array("<?php require_once (dirname(__FILE__).'foo.php');", "<?php require_once dirname(__FILE__).'foo.php';"),
+            array('<?php ClassCollectionLoader::load(include($this->getCacheDir().\'classes.map\'), $this->getCacheDir(), $name, $this->debug, false, $extension);', '<?php ClassCollectionLoader::load(include($this->getCacheDir().\'classes.map\'), $this->getCacheDir(), $name, $this->debug, false, $extension);'),
+            array("<?php require_once '\".__DIR__.\"/../bootstrap.php';", "<?php require_once '\".__DIR__.\"/../bootstrap.php';"),
+            array("// require foo", "// require foo"),
+            array("<?php // require foo", "<?php // require foo"),
+            array("* require foo", "* require foo"),
+            array("<?php /* require foo */", "<?php /* require foo */"),
             array('exit(\'POST must include "file"\');', 'exit(\'POST must include "file"\');'),
+            array('<?php include_once("foo/".CONSTANT."/bar.php");', '<?php include_once "foo/".CONSTANT."/bar.php";'),
+            array('<?php include_once("foo/".CONSTANT."/bar.php"); include_once("foo/".CONSTANT."/bar.php");', '<?php include_once "foo/".CONSTANT."/bar.php"; include_once "foo/".CONSTANT."/bar.php";'),
+            array('<?php include_once("foo/".CONSTANT."/bar.php"); $foo = "bar";', '<?php include_once "foo/".CONSTANT."/bar.php"; $foo = "bar";'),
+            array('<?php include_once("foo/".CONSTANT."/bar.php"); foo();', '<?php include_once "foo/".CONSTANT."/bar.php"; foo();'),
+            array('<?php include_once("foo/" . CONSTANT . "/bar.php");', '<?php include_once "foo/" . CONSTANT . "/bar.php";'),
+            array('<?php require($a ? $b : $c) . $d;', '<?php require ($a ? $b : $c) . $d;'),
         );
     }
 
-    private function getFileMock()
+    private function getTestFile($filename = __FILE__)
     {
-        return $this->getMockBuilder('\SplFileInfo')
-            ->disableOriginalConstructor()
-            ->getMock();
+        static $files = array();
+
+        if (!isset($files[$filename])) {
+            $files[$filename] = new \SplFileInfo($filename);
+        }
+
+        return $files[$filename];
     }
 }

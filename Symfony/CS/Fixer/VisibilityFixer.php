@@ -12,61 +12,43 @@
 namespace Symfony\CS\Fixer;
 
 use Symfony\CS\FixerInterface;
+use Symfony\CS\Tokens;
 
 /**
- * @author Jordi Boggiano <j.boggiano@seld.be>
+ * @author Dariusz Rumiński <dariusz.ruminski@gmail.com>
  */
 class VisibilityFixer implements FixerInterface
 {
     public function fix(\SplFileInfo $file, $content)
     {
-        // skip files with no OOP code
-        if (!preg_match('{\b(?:class|interface|trait)\b}i', $content)) {
-            return $content;
+        $tokens = Tokens::fromCode($content);
+        $elements = $tokens->getClassyElements();
+
+        foreach (array_reverse($elements, true) as $index => $element) {
+            if ('method' === $element['type']) {
+                $tokens->applyAttribs($index, $tokens->grabAttribsBeforeMethodToken($index));
+
+                // force whitespace between function keyword and function name to be single space char
+                $tokens[++$index]->content = ' ';
+            } elseif ('property' === $element['type']) {
+                $prevToken = $tokens->getPrevTokenOfKind($index, array(';', ',', ));
+                $nextToken = $tokens->getNextTokenOfKind($index, array(';', ',', ));
+
+                if (
+                    (!$prevToken || ',' !== $prevToken->content) &&
+                    (!$nextToken || ',' !== $nextToken->content)
+                ) {
+                    $tokens->applyAttribs($index, $tokens->grabAttribsBeforePropertyToken($index));
+                }
+            }
         }
 
-        // Visibility MUST be declared on all properties and methods;
-        // abstract and final MUST be declared before the visibility;
-        // static MUST be declared after the visibility
-        $content = preg_replace_callback('/^( {2,4}|\t)((?:(?:public|protected|private|static|var) +)+) *(\$[a-z0-9_]+)/im', function ($matches) {
-            $flags = explode(' ', strtolower(trim($matches[2])));
-            if (in_array('protected', $flags)) {
-                $visibility = 'protected';
-            } elseif (in_array('private', $flags)) {
-                $visibility = 'private';
-            } else {
-                $visibility = 'public';
-            }
-
-            return $matches[1] . $visibility
-                . (in_array('static', $flags) ? ' static' : '')
-                . ' ' . $matches[3];
-        }, $content);
-
-        $content = preg_replace_callback('/^( {2,4}|\t)((?:(?:public|protected|private|static|abstract|final) +)*)(function +[a-z0-9_]+)/im', function ($matches) {
-            $flags = explode(' ', strtolower(trim($matches[2])));
-            if (in_array('protected', $flags)) {
-                $visibility = 'protected';
-            } elseif (in_array('private', $flags)) {
-                $visibility = 'private';
-            } else {
-                $visibility = 'public';
-            }
-
-            return $matches[1]
-                . (in_array('abstract', $flags) ? 'abstract ' : '')
-                . (in_array('final', $flags) ? 'final ' : '')
-                . $visibility
-                . (in_array('static', $flags) ? ' static' : '')
-                . ' '. $matches[3];
-        }, $content);
-
-        return $content;
+        return $tokens->generateCode();
     }
 
     public function getLevel()
     {
-        // defined in PSR2 ¶4.4
+        // defined in PSR2 ¶4.3, ¶4.5
         return FixerInterface::PSR2_LEVEL;
     }
 
@@ -77,7 +59,7 @@ class VisibilityFixer implements FixerInterface
 
     public function supports(\SplFileInfo $file)
     {
-        return 'php' == pathinfo($file->getFilename(), PATHINFO_EXTENSION);
+        return 'php' === pathinfo($file->getFilename(), PATHINFO_EXTENSION);
     }
 
     public function getName()
@@ -87,6 +69,6 @@ class VisibilityFixer implements FixerInterface
 
     public function getDescription()
     {
-        return 'Visibility must be declared on all properties and methods; abstract and final must be declared before the visibility; static must be declared after the visibility.';
+        return 'Visibility MUST be declared on all properties and methods; abstract and final MUST be declared before the visibility; static MUST be declared after the visibility.';
     }
 }

@@ -1,21 +1,9 @@
 <?php
 
-use Symfony\CS\FixerInterface;
-
-$finder = Symfony\CS\Finder\DefaultFinder::create()
-    ->notName('LICENSE')
-    ->notName('README.md')
-    ->notName('.php_cs')
-    ->notName('composer.*')
-    ->notName('phpunit.xml*')
-    ->notName('*.phar')
-    ->exclude('vendor')
+return Symfony\CS\Config\Config::create()->finder(Symfony\CS\Finder\DefaultFinder::create()
     ->exclude('Symfony/CS/Tests/Fixer')
-    ->notName('ElseifFixer.php')
+    ->exclude('Symfony/CS/Tests/Fixtures')
+    ->notName('phar-stub.php')
+    ->notName('FunctionDeclarationSpacingFixer.php')
     ->in(__DIR__)
-;
-
-return Symfony\CS\Config\Config::create()
-    ->finder($finder)
-;
-
+);

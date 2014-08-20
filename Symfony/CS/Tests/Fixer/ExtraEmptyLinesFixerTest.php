@@ -18,36 +18,40 @@ class ExtraEmptyLinesFixerTest extends \PHPUnit_Framework_TestCase
     public function testFix()
     {
         $fixer = new ExtraEmptyLinesFixer();
-        $file = new \SplFileInfo(__FILE__);
+        $file = $this->getTestFile();
 
         $expected = <<<'EOF'
+<?php
 $a = new Bar();
 
 $a = new FooBaz();
 EOF;
 
         $input = <<<'EOF'
+<?php
 $a = new Bar();
 
 
 $a = new FooBaz();
 EOF;
 
-        $this->assertEquals($expected, $fixer->fix($file, $input));
+        $this->assertSame($expected, $fixer->fix($file, $input));
     }
 
     public function testFixWithManyEmptyLines()
     {
         $fixer = new ExtraEmptyLinesFixer();
-        $file = new \SplFileInfo(__FILE__);
+        $file = $this->getTestFile();
 
         $expected = <<<'EOF'
+<?php
 $a = new Bar();
 
 $a = new FooBaz();
 EOF;
 
         $input = <<<'EOF'
+<?php
 $a = new Bar();
 
 
@@ -58,15 +62,16 @@ $a = new Bar();
 $a = new FooBaz();
 EOF;
 
-        $this->assertEquals($expected, $fixer->fix($file, $input));
+        $this->assertSame($expected, $fixer->fix($file, $input));
     }
 
     public function testFixWithHeredoc()
     {
         $fixer = new ExtraEmptyLinesFixer();
-        $file = new \SplFileInfo(__FILE__);
+        $file = $this->getTestFile();
 
         $expected = <<<'EOF'
+<?php
 $b = <<<TEXT
 Foo TEXT
 Bar
@@ -77,6 +82,7 @@ TEXT;
 EOF;
 
         $input = <<<'EOF'
+<?php
 $b = <<<TEXT
 Foo TEXT
 Bar
@@ -86,15 +92,16 @@ FooFoo
 TEXT;
 EOF;
 
-        $this->assertEquals($expected, $fixer->fix($file, $input));
+        $this->assertSame($expected, $fixer->fix($file, $input));
     }
 
     public function testFixWithNowdoc()
     {
         $fixer = new ExtraEmptyLinesFixer();
-        $file = new \SplFileInfo(__FILE__);
+        $file = $this->getTestFile();
 
         $expected = <<<'EOF'
+<?php
 $b = <<<'TEXT'
 Foo TEXT;
 Bar1}
@@ -105,6 +112,7 @@ TEXT;
 EOF;
 
         $input = <<<'EOF'
+<?php
 $b = <<<'TEXT'
 Foo TEXT;
 Bar1}
@@ -114,15 +122,16 @@ FooFoo
 TEXT;
 EOF;
 
-        $this->assertEquals($expected, $fixer->fix($file, $input));
+        $this->assertSame($expected, $fixer->fix($file, $input));
     }
 
     public function testFixWithEncapsulatedNowdoc()
     {
         $fixer = new ExtraEmptyLinesFixer();
-        $file = new \SplFileInfo(__FILE__);
+        $file = $this->getTestFile();
 
         $expected = <<<'EOF'
+<?php
 $b = <<<'TEXT'
 Foo TEXT
 Bar
@@ -139,6 +148,7 @@ TEXT;
 EOF;
 
         $input = <<<'EOF'
+<?php
 $b = <<<'TEXT'
 Foo TEXT
 Bar
@@ -154,15 +164,16 @@ FooFoo
 TEXT;
 EOF;
 
-        $this->assertEquals($expected, $fixer->fix($file, $input));
+        $this->assertSame($expected, $fixer->fix($file, $input));
     }
 
     public function testFixWithMultilineString()
     {
         $fixer = new ExtraEmptyLinesFixer();
-        $file = new \SplFileInfo(__FILE__);
+        $file = $this->getTestFile();
 
         $expected = <<<'EOF'
+<?php
 $a = 'Foo
 
 
@@ -170,21 +181,23 @@ Bar';
 EOF;
 
         $input = <<<'EOF'
+<?php
 $a = 'Foo
 
 
 Bar';
 EOF;
 
-        $this->assertEquals($expected, $fixer->fix($file, $input));
+        $this->assertSame($expected, $fixer->fix($file, $input));
     }
 
     public function testFixWithTrickyMultilineStrings()
     {
         $fixer = new ExtraEmptyLinesFixer();
-        $file = new \SplFileInfo(__FILE__);
+        $file = $this->getTestFile();
 
         $expected = <<<'EOF'
+<?php
 $a = 'Foo';
 
 $b = 'Bar
@@ -201,6 +214,7 @@ FooFoo';
 EOF;
 
         $input = <<<'EOF'
+<?php
 $a = 'Foo';
 
 
@@ -219,6 +233,47 @@ Here\'s an escaped quote '
 FooFoo';
 EOF;
 
-        $this->assertEquals($expected, $fixer->fix($file, $input));
+        $this->assertSame($expected, $fixer->fix($file, $input));
+    }
+
+    public function testFixWithCommentWithAQuote()
+    {
+        $fixer = new ExtraEmptyLinesFixer();
+        $file = new \SplFileInfo(__FILE__);
+
+        $expected = <<<'EOF'
+<?php
+$a = 'foo';
+
+// my comment's gotta have a quote
+$b = 'foobar';
+
+$c = 'bar';
+EOF;
+
+        $input = <<<'EOF'
+<?php
+$a = 'foo';
+
+
+// my comment's gotta have a quote
+$b = 'foobar';
+
+
+$c = 'bar';
+EOF;
+
+        $this->assertSame($expected, $fixer->fix($file, $input));
+    }
+
+    private function getTestFile($filename = __FILE__)
+    {
+        static $files = array();
+
+        if (!isset($files[$filename])) {
+            $files[$filename] = new \SplFileInfo($filename);
+        }
+
+        return $files[$filename];
     }
 }

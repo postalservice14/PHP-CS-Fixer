@@ -12,9 +12,12 @@
 namespace Symfony\CS\Fixer;
 
 use Symfony\CS\FixerInterface;
+use Symfony\CS\Token;
+use Symfony\CS\Tokens;
 
 /**
- * @author Саша Стаменковић <umpirsky@gmail.com>
+ * @author Sebastiaan Stok <s.stok@rollerscapes.net>
+ * @author Dariusz Rumiński <dariusz.ruminski@gmail.com>
  */
 class IncludeFixer implements FixerInterface
 {
@@ -23,24 +26,138 @@ class IncludeFixer implements FixerInterface
      */
     public function fix(\SplFileInfo $file, $content)
     {
-        $statements = implode('|', array(
-            'include',
-            'include_once',
-            'require',
-            'require_once',
-        ));
+        $tokens = Tokens::fromCode($content);
 
-        return preg_replace(
-            array(
-                sprintf('#^(\s*(?:return +)?(?:\$[a-z0-9_()>-]+ *= *)?(?:%s))\s*\(?\s*[\'"]{1}(?!\")([a-zA-Z0-9\-_.\/]*)[\'"]{1}\s*\)?#m', $statements), // Remove enclosing brackets, trailing spaces and convert double with single quotes
-                sprintf('#^(\s*(?:return +)?(?:\$[a-z0-9_()>-]+ *= *)?(?:%s))[^\S\n]+(.*)#m', $statements),                                              // Replace multiple spaces with single between include and file path
-            ),
-            array(
-                "\\1 '\\2'",
-                '\\1 \\2',
-            ),
-            $content
-        );
+        $includies = $this->findIncludies($tokens);
+        $this->clearIncludies($tokens, $includies);
+
+        return $tokens->generateCode();
+    }
+
+    private function clearIncludies(Tokens $tokens, array $includies)
+    {
+        foreach (array_reverse($includies) as $includy) {
+            if ($includy['end']) {
+                $tokens->removeLeadingWhitespace($includy['end']);
+            }
+
+            $braces = $includy['braces'];
+
+            if ($braces) {
+                $nextToken = $tokens->getNextNonWhitespace($includy['braces']['close']);
+
+                if (!$nextToken->isArray() && ';' === $nextToken->content) {
+                    $tokens->removeLeadingWhitespace($braces['open']);
+                    $tokens->removeTrailingWhitespace($braces['open']);
+                    $tokens->removeLeadingWhitespace($braces['close']);
+                    $tokens->removeTrailingWhitespace($braces['close']);
+
+                    $tokens[$braces['open']] = new Token(array(T_WHITESPACE, ' ', ));
+                    $tokens[$braces['close']]->clear();
+                }
+            }
+
+            $nextIndex = $includy['begin'] + 1;
+            $nextToken = $tokens[$nextIndex];
+
+            while ($nextToken->isEmpty()) {
+                $nextToken = $tokens[++$nextIndex];
+            }
+
+            if ($nextToken->isWhitespace()) {
+                $nextToken->content = ' ';
+            } elseif ($braces) {
+                $tokens->insertAt($includy['begin'] + 1, new Token(array(T_WHITESPACE, ' ', )));
+            }
+        }
+    }
+
+    private function findIncludies(Tokens $tokens)
+    {
+        static $includyTokens = array(T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE);
+
+        $inStatement = false;
+        $inBraces = false;
+        $bracesLevel = 0;
+
+        $includies = array();
+        $includiesCount = 0;
+
+        for ($index = 0, $indexLimit = count($tokens); $index < $indexLimit; ++$index) {
+            $token = $tokens[$index];
+
+            if (!$inStatement) {
+                $inStatement = $token->isGivenKind($includyTokens);
+
+                if (!$inStatement) {
+                    continue;
+                }
+
+                $includies[$includiesCount] = array(
+                    'begin' => $index,
+                    'braces' => null,
+                    'end' => null,
+                );
+
+                // Don't remove when the statement is wrapped. include is also legal as function parameter
+                // but requires being wrapped then
+                if ('(' !== $tokens->getPrevNonWhitespace($index)->content) {
+                    $nextTokenIndex = null;
+                    $nextToken = $tokens->getNextNonWhitespace($index, array(), $nextTokenIndex);
+
+                    if ('(' === $nextToken->content) {
+                        $inBraces = true;
+                        $bracesLevel = 1;
+                        $index = $nextTokenIndex;
+                        $includies[$includiesCount]['braces'] = array(
+                            'open' => $index,
+                            'close' => null,
+                        );
+                    }
+                }
+
+                continue;
+            }
+
+            if ($token->isArray() || $token->isWhitespace()) {
+                continue;
+            }
+
+            if ('(' === $token->content) {
+                ++$bracesLevel;
+
+                continue;
+            }
+
+            if (')' === $token->content) {
+                --$bracesLevel;
+
+                if ($inBraces && 0 === $bracesLevel) {
+                    $inStatement = false;
+                    $includies[$includiesCount]['braces']['close'] = $index;
+
+                    $nextTokenIndex = null;
+                    $nextToken = $tokens->getNextNonWhitespace($index, array(), $nextTokenIndex);
+
+                    if (';' === $nextToken->content) {
+                        $includies[$includiesCount]['end'] = $nextTokenIndex;
+                        ++$includiesCount;
+                    }
+
+                    $index = $nextTokenIndex;
+                }
+
+                continue;
+            }
+
+            if ($inStatement && ';' === $token->content) {
+                $inStatement = false;
+                $includies[$includiesCount]['end'] = $index;
+                ++$includiesCount;
+            }
+        }
+
+        return $includies;
     }
 
     /**
@@ -64,7 +181,7 @@ class IncludeFixer implements FixerInterface
      */
     public function supports(\SplFileInfo $file)
     {
-        return 'php' == pathinfo($file->getFilename(), PATHINFO_EXTENSION);
+        return 'php' === pathinfo($file->getFilename(), PATHINFO_EXTENSION);
     }
 
     /**
@@ -80,6 +197,6 @@ class IncludeFixer implements FixerInterface
      */
     public function getDescription()
     {
-        return 'Include and file path should be devided with single space. File path should not be placed under brackets.';
+        return 'Include and file path should be divided with a single space. File path should not be placed under brackets.';
     }
 }

@@ -12,18 +12,26 @@
 namespace Symfony\CS\Fixer;
 
 use Symfony\CS\FixerInterface;
+use Symfony\CS\Tokens;
 
 /**
- * @author Fabien Potencier <fabien@symfony.com>
+ * @author Dariusz Rumiński <dariusz.ruminski@gmail.com>
  */
 class IndentationFixer implements FixerInterface
 {
     public function fix(\SplFileInfo $file, $content)
     {
-        // [Structure] Indentation is done by steps of four spaces (tabs are never allowed)
-        return preg_replace_callback('/^([ \t]+)/m', function ($matches) use ($content) {
-            return str_replace("\t", '    ', $matches[0]);
-        }, $content);
+        $tokens = Tokens::fromCode($content);
+
+        foreach ($tokens as $index => $token) {
+            if (!$token->isWhitespace()) {
+                continue;
+            }
+
+            $tokens[$index]->content = preg_replace('/(?:(?<! ) {1,3})?\t/', '    ', $token->content);
+        }
+
+        return $tokens->generateCode();
     }
 
     public function getLevel()
@@ -39,7 +47,7 @@ class IndentationFixer implements FixerInterface
 
     public function supports(\SplFileInfo $file)
     {
-        return 'php' == pathinfo($file->getFilename(), PATHINFO_EXTENSION);
+        return 'php' === pathinfo($file->getFilename(), PATHINFO_EXTENSION);
     }
 
     public function getName()
@@ -49,6 +57,6 @@ class IndentationFixer implements FixerInterface
 
     public function getDescription()
     {
-        return 'Code must use 4 spaces for indenting, not tabs.';
+        return 'Code MUST use an indent of 4 spaces, and MUST NOT use tabs for indenting.';
     }
 }

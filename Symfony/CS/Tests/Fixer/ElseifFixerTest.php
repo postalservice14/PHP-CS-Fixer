@@ -29,9 +29,38 @@ class ElseifFixerTest extends \PHPUnit_Framework_TestCase
         $fixer = new ElseifFixer();
 
         $this->assertSame(
-            'if ($some) { $test = true } elseif ($some != "test") { $test = false; }',
-            $fixer->fix($this->getFileMock(), 'if ($some) { $test = true } else if ($some != "test") { $test = false; }'
-        ));
+            '<?php if ($some) { $test = true; } elseif ($some !== "test") { $test = false; }',
+            $fixer->fix($this->getTestFile(), '<?php if ($some) { $test = true; } else if ($some !== "test") { $test = false; }')
+        );
+
+        $this->assertSame(
+            '<?php if ($some) { $test = true; } elseif ($some !== "test") { $test = false; }',
+            $fixer->fix($this->getTestFile(), '<?php if ($some) { $test = true; } else  if ($some !== "test") { $test = false; }')
+        );
+
+        $this->assertSame(
+            '<?php $js = \'if (foo.a) { foo.a = "OK"; } else if (foo.b) { foo.b = "OK"; }\';',
+            $fixer->fix($this->getTestFile(), '<?php $js = \'if (foo.a) { foo.a = "OK"; } else if (foo.b) { foo.b = "OK"; }\';')
+        );
+
+        $this->assertSame(
+            '<?php
+if ($a) {
+    $x = 1;
+} elseif ($b) {
+    $x = 2;
+}',
+            $fixer->fix(
+                $this->getTestFile(),
+                '<?php
+if ($a) {
+    $x = 1;
+} else
+if ($b) {
+    $x = 2;
+}'
+            )
+        );
     }
 
     /**
@@ -41,7 +70,7 @@ class ElseifFixerTest extends \PHPUnit_Framework_TestCase
     {
         $fixer = new ElseifFixer();
 
-        $this->assertEquals('elseif', $fixer->getName());
+        $this->assertSame('elseif', $fixer->getName());
     }
 
     /**
@@ -75,32 +104,30 @@ class ElseifFixerTest extends \PHPUnit_Framework_TestCase
      */
     public function testThatOnlyPHPFilesAreSupported()
     {
-        $phpFile = $this->getFileMock();
-        $phpFile->expects($this->any())
-            ->method('getFilename')
-            ->will($this->returnValue('file.php'));
+        $phpFile = $this->getTestFile();
 
-        $otherFile = $this->getFileMock();
-        $otherFile->expects($this->any())
-            ->method('getFilename')
-            ->will($this->returnValue('file.js'));
+        $otherFile = $this->getTestFile(__DIR__ . '/../../../../README.rst');
 
-       $fixer = new ElseIfFixer();
+        $fixer = new ElseIfFixer();
 
-       $this->assertTrue($fixer->supports($phpFile));
-       $this->assertFalse($fixer->supports($otherFile));
+        $this->assertTrue($fixer->supports($phpFile));
+        $this->assertFalse($fixer->supports($otherFile));
     }
 
     public function testThatAreDefinedInPSR2()
     {
-       $fixer = new ElseIfFixer();
-       $this->assertSame(FixerInterface::PSR2_LEVEL, $fixer->getLevel());
+        $fixer = new ElseIfFixer();
+        $this->assertSame(FixerInterface::PSR2_LEVEL, $fixer->getLevel());
     }
 
-    private function getFileMock()
+    private function getTestFile($filename = __FILE__)
     {
-        return $this->getMockBuilder('\SplFileInfo')
-            ->disableOriginalConstructor()
-            ->getMock();
+        static $files = array();
+
+        if (!isset($files[$filename])) {
+            $files[$filename] = new \SplFileInfo($filename);
+        }
+
+        return $files[$filename];
     }
 }

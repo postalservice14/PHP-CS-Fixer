@@ -12,19 +12,40 @@
 namespace Symfony\CS\Fixer;
 
 use Symfony\CS\FixerInterface;
+use Symfony\CS\Token;
+use Symfony\CS\Tokens;
 
 /**
- * @author Jakub Zalas <jakub@zalas.pl>
+ * @author Dariusz Rumiński <dariusz.ruminski@gmail.com>
  */
 class PhpClosingTagFixer implements FixerInterface
 {
     public function fix(\SplFileInfo $file, $content)
     {
-        if (strpos($content, '<?php') === 0) {
-            return preg_replace('/( *)\?>\s*$/s', '', $content);
+        $tokens = Tokens::fromCode($content);
+
+        $kinds = $tokens->findGivenKind(array(T_OPEN_TAG, T_CLOSE_TAG, T_INLINE_HTML, ));
+
+        // leave code intact if there is:
+        // - any T_INLINE_HTML code
+        // - several opening tags
+        if (count($kinds[T_INLINE_HTML]) || count($kinds[T_OPEN_TAG]) > 1) {
+            return $content;
         }
 
-        return $content;
+        foreach (array_reverse($kinds[T_CLOSE_TAG], true) as $index => $token) {
+            $tokens->removeLeadingWhitespace($index);
+            $token->clear();
+
+            $prevIndex = null;
+            $prevToken = $tokens->getPrevNonWhitespace($index, array(), $prevIndex);
+
+            if (null !== $prevToken->id || ';' !== $prevToken->content) {
+                $tokens->insertAt($prevIndex + 1, new Token(';'));
+            }
+        }
+
+        return $tokens->generateCode();
     }
 
     public function getLevel()
@@ -35,12 +56,13 @@ class PhpClosingTagFixer implements FixerInterface
 
     public function getPriority()
     {
-        return 0;
+        // should be run before the ShortTagFixer
+        return 5;
     }
 
     public function supports(\SplFileInfo $file)
     {
-        return 'php' == pathinfo($file->getFilename(), PATHINFO_EXTENSION);
+        return 'php' === pathinfo($file->getFilename(), PATHINFO_EXTENSION);
     }
 
     public function getName()

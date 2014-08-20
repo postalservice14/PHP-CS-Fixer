@@ -16,6 +16,7 @@ use Symfony\CS\FixerInterface;
 /**
  * @author Adrien Brault <adrien.brault@gmail.com>
  * @author Саша Стаменковић <umpirsky@gmail.com>
+ * @author Niko Kivelä <niko@tovrleaf.com>
  */
 class ControlSpacesFixer implements FixerInterface
 {
@@ -30,7 +31,6 @@ class ControlSpacesFixer implements FixerInterface
         $content = $this->fixControlsWithPrefixBraceAndSuffixBrace($content);
         $content = $this->fixControlsWithPrefixBraceAndParenthesesAndSuffixBrace($content);
         $content = $this->fixControlsWithPrefixBraceAndParenthesesAndSuffixBraceInLambdas($content);
-        $content = $this->fixCasts($content);
 
         return $content;
     }
@@ -57,7 +57,7 @@ class ControlSpacesFixer implements FixerInterface
      */
     public function supports(\SplFileInfo $file)
     {
-        return 'php' == pathinfo($file->getFilename(), PATHINFO_EXTENSION);
+        return 'php' === pathinfo($file->getFilename(), PATHINFO_EXTENSION);
     }
 
     /**
@@ -73,7 +73,7 @@ class ControlSpacesFixer implements FixerInterface
      */
     public function getDescription()
     {
-        return 'A single space should be between: the closing brace and the control, the control and the opening parenthese, the closing parenthese and the opening brace.';
+        return 'A single space should be between: the closing brace and the control, the control and the opening parentheses, the closing parentheses and the opening brace.';
     }
 
     /**
@@ -128,11 +128,33 @@ class ControlSpacesFixer implements FixerInterface
 
         return preg_replace(
             array(
-                sprintf('/(%s)[^\S\n]*\([^\S\n]*([^()]*?|(?R))[^\S\n]*\)[^\S\n]*{/', implode('|', $statements)), // Fix spacing inside brackets for simple bracket cases
-                sprintf('/(%s)[^\S\n]*\((.*)\)[^\S\n]*{/', implode('|', $statements))                            // Fix spacing for all cases leaving spacing inside brackets as is
+                // [^\S\n]* means not any non-whitespace character or newline 0
+                // means any whitespace character expect linebreak
+
+                // Fix spacing inside brackets for simple bracket cases
+                sprintf(
+                    '/(%s)  # group capture: $statements
+                    [^\S\n]*
+                    \(          # literal (
+                        [^\S\n]*
+                        (                   # group capture: start
+                            [^()]*?         # not () or newline zero or more times, greedy
+                            |               # OR
+                            (?R)            # recursive syntax
+                        )                   # group capture: end
+                        [^\S\n]*
+                    (\s*)
+                    \)          # literal )
+                    [^\S\n]*
+                    {
+                    /x', // extended free spacing mode
+                    implode('|', $statements)
+                ),
+                // Fix spacing for all cases leaving spacing inside brackets as
+                sprintf('/(%s)[^\S\n]*\((.*)\)[^\S\n]*{/', implode('|', $statements)),
             ),
             array(
-                '\\1 (\\2) {',
+                '\\1 (\\2\\3) {',
                 '\\1 (\\2) {'
             ),
             $content
@@ -187,44 +209,5 @@ class ControlSpacesFixer implements FixerInterface
         );
 
         return preg_replace(sprintf('/\)[^\S\n]*(%s)[^\S\n]*\((.*)\)[^\S\n]*{/', implode('|', $statements)), ') \\1 (\\2) {', $content);
-    }
-
-    /**
-     * "(xxx) ..."
-     *
-     * @param string $content
-     *
-     * @return string
-     */
-    private function fixCasts($content)
-    {
-        $types = implode('|', array(
-            'int',
-            'integer',
-            'bool',
-            'boolean',
-            'float',
-            'double',
-            'real',
-            'string',
-            'array',
-            'object',
-            'unset',
-            'binary',
-        ));
-
-        return preg_replace(
-            array(
-                sprintf('/\(\s*(%s)\s*\)[^\S\n]*/', $types),     // Remove spaces inside brackets and replace spaces/empty space after cast with a single space
-                sprintf('/ $/m', $types),                        // Remove trailing space
-                sprintf('/\((%s)\)\s*\((%s)\)/', $types, $types) // Replace spaces/empty space between multiple casts with a single space
-            ),
-            array(
-                '(\\1) ',
-                '',
-                '(\\1) (\\2)'
-            ),
-            $content
-        );
     }
 }
