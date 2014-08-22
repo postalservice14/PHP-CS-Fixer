@@ -197,6 +197,9 @@ Choose from the list of available fixers:
 * **php_closing_tag** [PSR-2] The closing ?> tag MUST be omitted from
    files containing only PHP.
 
+* **semicolon_spaces** [PSR-2] Spaces before closing semicolon are
+   prohibited.
+
 * **trailing_spaces** [PSR-2] Remove trailing whitespace at the end of
    lines.
 
